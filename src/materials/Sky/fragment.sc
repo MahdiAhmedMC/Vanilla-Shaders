@@ -1,177 +1,198 @@
-#ifdef GL_FRAGMENT_PRECISION_HIGH
-precision highp float;
-#else
-precision mediump float;
+#ifndef INSTANCING
+  $input v_worldPos, v_underwaterRainTimeDay
 #endif
 
-uniform vec2 resolution;
-uniform float time;
-uniform vec2 touch;
-uniform sampler2D noise; // Renombrado de pp a noise
+#include <bgfx_shader.sh>
 
-#define u_resolution resolution
-#define u_mouse touch
-#define u_time time
+#ifndef INSTANCING
+  #include <newb/main.sh>
 
-#define CAM_FOV 1.9
-#define SPHERE_SIZE 0.4
+  uniform vec4 TimeOfDay;
+  uniform vec4 FogColor;
+  uniform vec4 FogAndDistanceControl;
+  uniform vec4 CameraPosition;
 
-// ============================================================================
-// CONFIGURACIÓN PERSONALIZABLE DE LA AURORA
-// ============================================================================
-// Colores base de la aurora (RGB)
-#define AURORA_COLOR_1 vec3(7.0, 2.2, 12.0)  // Color base / inferior
-#define AURORA_COLOR_2 vec3(6.0, 16.0, 18.0) // Color secundario / superior
+  SAMPLER2D_AUTOREG(s_noise);
 
-// Multiplicador de brillo global
-#define AURORA_BRIGHTNESS 1.0
+  // ============================================================================
+  // CUSTOM AURORA SETTINGS
+  // ============================================================================
+  #define AURORA_COLOR_1 vec3(7.0, 2.2, 12.0)
+  #define AURORA_COLOR_2 vec3(6.0, 16.0, 18.0)
+  #define AURORA_BRIGHTNESS 1.0
+  #define AURORA_LAYERS 20
 
-// Número de capas para ajustar el rendimiento:
-// - 5 a 8:  Rendimiento muy alto (dispositivos débiles)
-// - 10:     Valor original
-// - 15 a 20: Mayor calidad visual (requiere mayor procesamiento de GPU)
-#define AURORA_LAYERS 20
-// ============================================================================
+  #ifndef AURORA_STYLE
+    #define AURORA_STYLE 1
+  #endif
 
-#ifndef AURORA_STYLE
-#define AURORA_STYLE 1
-#endif
+  #ifndef AURORA_CONDITION
+    #define AURORA_CONDITION 0
+  #endif
 
-#ifndef AURORA_CONDITION
-#define AURORA_CONDITION 0
-#endif
+  float auroraPow2(float x) {
+    return x * x;
+  }
 
-// Funciones auxiliares de compatibilidad GLSL
-float pow2(float x) { return x * x; }
-float pow1_5(float x) { return x * sqrt(x); }
-float clamp01(float x) { return clamp(x, 0.0, 1.0); }
-float sqrt1(float x) { return sqrt(max(0.0, x)); }
+  float auroraPow1_5(float x) {
+    return x * sqrt(max(x, 0.0));
+  }
 
-// Variables de condición atmosférica
-float sunVisibility = 0.0;
-float rainFactor = 0.0;
-float maxBlindnessDarkness = 0.0;
-float moonPhase = 0.0;
-float inSnowy = 1.0;
-vec3 cameraPosition = vec3(0.0);
+  float auroraClamp01(float x) {
+    return clamp(x, 0.0, 1.0);
+  }
 
-// --- FUNCIÓN DE AURORA BOREAL ---
-vec3 GetAuroraBorealis(vec3 viewPos, float VdotU, float dither) {
-    float syncedTime = u_time;
-    float frameTimeCounter = u_time;
-    mat3 gbufferModelViewInverse = mat3(1.0);
+  float auroraSqrt1(float x) {
+    return sqrt(max(x, 0.0));
+  }
 
-    float visibility = sqrt1(clamp01(VdotU * 1.5 - 0.225)) - sunVisibility - rainFactor - maxBlindnessDarkness;
+  vec3 GetAuroraBorealis(
+    vec3 viewPos,
+    float VdotU,
+    float dither,
+    float syncedTime,
+    float frameTimeCounter,
+    vec3 cameraPosition,
+    float sunVisibility,
+    float rainFactor
+  ) {
+    // These two optional conditions remain neutral until the corresponding
+    // Bedrock biome/moon values are mapped.
+    float maxBlindnessDarkness = 0.0;
+    float moonPhase = 0.0;
+    float inSnowy = 1.0;
+
+    float visibility = auroraSqrt1(auroraClamp01(VdotU * 1.5 - 0.225))
+      - sunVisibility
+      - rainFactor
+      - maxBlindnessDarkness;
+
     visibility *= 1.0 - VdotU * 0.9;
 
     #if AURORA_CONDITION == 1 || AURORA_CONDITION == 3
-        visibility -= moonPhase;
+      visibility -= moonPhase;
     #endif
     #if AURORA_CONDITION == 2 || AURORA_CONDITION == 3
-        visibility *= inSnowy;
+      visibility *= inSnowy;
     #endif
     #if AURORA_CONDITION == 4
-        visibility = max(visibility * inSnowy, visibility - moonPhase);
+      visibility = max(visibility * inSnowy, visibility - moonPhase);
     #endif
 
     if (visibility > 0.0) {
-        vec3 aurora = vec3(0.0);
+      vec3 aurora = vec3(0.0);
 
-        vec3 wpos = gbufferModelViewInverse * viewPos;
-        wpos.xz /= max(0.0001, wpos.y);
-        vec2 cameraPositionM = cameraPosition.xz * 0.0075;
-        cameraPositionM.x += syncedTime * 0.04;
+      // The sky material already receives a world-oriented view direction.
+      vec3 wpos = viewPos;
+      wpos.xz /= max(0.0001, wpos.y);
 
-        int sampleCount = AURORA_LAYERS;
-        int sampleCountP = sampleCount + 10;
+      vec2 cameraPositionM = cameraPosition.xz * 0.0075;
+      cameraPositionM.x += syncedTime * 0.04;
 
-        float ditherM = dither + 5.0;
-        float auroraAnimate = frameTimeCounter * 0.001;
+      float sampleCountP = float(AURORA_LAYERS + 10);
+      float ditherM = dither + 5.0;
+      float auroraAnimate = frameTimeCounter * 0.001;
 
-        // Bucle dinámico usando AURORA_LAYERS
-        for (int i = 0; i < AURORA_LAYERS; i++) {
-            float current = pow2((float(i) + ditherM) / float(sampleCountP));
+      for (int i = 0; i < AURORA_LAYERS; i++) {
+        float current = auroraPow2((float(i) + ditherM) / sampleCountP);
 
-            vec2 planePos = wpos.xz * (0.8 + current) * 11.0 + cameraPositionM;
-            #if AURORA_STYLE == 1
-                planePos = floor(planePos) * 0.0007;
-
-                float n = texture2D(noise, planePos).b;
-                n = pow2(pow2(pow2(pow2(1.0 - 2.0 * abs(n - 0.5)))));
-
-                n *= pow1_5(texture2D(noise, planePos * 100.0 + auroraAnimate).b);
-            #else
-                planePos *= 0.0007;
-
-                float n = texture2D(noise, planePos).r;
-                n = pow2(pow2(pow2(pow2(1.0 - 2.0 * abs(n - 0.5)))));
-
-                n *= texture2D(noise, planePos * 3.0 + auroraAnimate).b;
-                n *= texture2D(noise, planePos * 5.0 - auroraAnimate).b;
-            #endif
-
-            float currentM = 1.0 - current;
-            aurora += n * currentM * mix(AURORA_COLOR_1, AURORA_COLOR_2, pow2(pow2(currentM)));
-        }
+        vec2 planePos = wpos.xz * (0.8 + current) * 11.0 + cameraPositionM;
 
         #if AURORA_STYLE == 1
-            aurora *= 1.3;
+          planePos = floor(planePos) * 0.0007;
+
+          float n = texture2D(s_noise, planePos).b;
+          n = auroraPow2(auroraPow2(auroraPow2(auroraPow2(
+            1.0 - 2.0 * abs(n - 0.5)
+          ))));
+
+          n *= auroraPow1_5(
+            texture2D(s_noise, planePos * 100.0 + auroraAnimate).b
+          );
         #else
-            aurora *= 1.8;
+          planePos *= 0.0007;
+
+          float n = texture2D(s_noise, planePos).r;
+          n = auroraPow2(auroraPow2(auroraPow2(auroraPow2(
+            1.0 - 2.0 * abs(n - 0.5)
+          ))));
+
+          n *= texture2D(s_noise, planePos * 3.0 + auroraAnimate).b;
+          n *= texture2D(s_noise, planePos * 5.0 - auroraAnimate).b;
         #endif
 
-        // Aplica el control global de brillo
-        aurora *= AURORA_BRIGHTNESS;
+        float currentM = 1.0 - current;
+        aurora += n * currentM * mix(
+          AURORA_COLOR_1,
+          AURORA_COLOR_2,
+          auroraPow2(auroraPow2(currentM))
+        );
+      }
 
-        return aurora * visibility / float(sampleCount);
+      #if AURORA_STYLE == 1
+        aurora *= 1.3;
+      #else
+        aurora *= 1.8;
+      #endif
+
+      aurora *= AURORA_BRIGHTNESS;
+      return aurora * visibility / float(AURORA_LAYERS);
     }
 
     return vec3(0.0);
-}
-
-vec3 renderWorld(vec3 vdir) {
-    float VdotU = clamp(vdir.y, 0.0, 1.0);
-    vec3 skyColor = mix(vec3(0.005, 0.01, 0.02), vec3(0.02, 0.05, 0.1), VdotU);
-
-    float dither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
-
-    vec3 auroraColor = GetAuroraBorealis(vdir, VdotU, dither);
-
-    return skyColor + auroraColor;
-}
+  }
+#endif
 
 void main() {
-    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / u_resolution.x;
+  #ifndef INSTANCING
+    vec3 viewDir = normalize(v_worldPos);
 
-    vec2 m = u_mouse / u_resolution;
-    if (u_mouse.x <= 0.01 && u_mouse.y <= 0.01) {
-        m = vec2(0.5, 0.45);
+    nl_environment env;
+    env.end = false;
+    env.nether = false;
+    env.underwater = v_underwaterRainTimeDay.x > 0.5;
+    env.rainFactor = v_underwaterRainTimeDay.y;
+    env.dayFactor = v_underwaterRainTimeDay.w;
+    env.fogCol = FogColor.rgb;
+    env = calculateSunParams(env, TimeOfDay.x);
+
+    nl_skycolor skycol = nlOverworldSkyColors(env);
+
+    vec3 skyColor = nlRenderSky(skycol, env, -viewDir, v_underwaterRainTimeDay.z, true);
+
+    // Match the direction convention used by nlRenderSky while keeping the
+    // aurora in the upper hemisphere.
+    vec3 auroraViewDir = vec3(-viewDir.x, viewDir.y, -viewDir.z);
+    float VdotU = clamp(auroraViewDir.y, 0.0, 1.0);
+    float dither = fract(
+      sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453
+    );
+
+    // Fade the custom aurora as the sun rises and during rain.
+    if (!env.underwater) {
+      skyColor += GetAuroraBorealis(
+        auroraViewDir,
+        VdotU,
+        dither,
+        v_underwaterRainTimeDay.z,
+        v_underwaterRainTimeDay.z,
+        CameraPosition.xyz,
+        max(env.dayFactor, 0.0),
+        env.rainFactor
+      );
     }
 
-    float yaw   = (m.x - 0.5) * 6.2831;
-    float pitch = (m.y - 0.5) * 1.5707;
+    #ifdef NL_SHOOTING_STAR
+      skyColor += NL_SHOOTING_STAR*nlRenderShootingStar(viewDir, env.fogCol, v_underwaterRainTimeDay.z);
+    #endif
+    #ifdef NL_GALAXY_STARS
+      skyColor += NL_GALAXY_STARS*nlRenderGalaxy(viewDir, env.fogCol, env, v_underwaterRainTimeDay.z);
+    #endif
 
-    vec3 vdir = normalize(vec3(uv.xy, 1.0 / tan(0.5 * CAM_FOV)));
+    skyColor = colorCorrection(skyColor);
 
-    float cp = cos(pitch), sp = sin(pitch);
-    vdir.yz = mat2(cp, -sp, sp, cp) * vdir.yz;
-
-    float cy = cos(yaw), sy = sin(yaw);
-    vdir.xz = mat2(cy, -sy, sy, cy) * vdir.xz;
-
-    vec2 st = gl_FragCoord.xy / (u_resolution.x * SPHERE_SIZE) - 1.4;
-    bool f = st.x > 1.0;
-    if (f) st.x -= 2.3;
-
-    float d = dot(st, st);
-    if (d < 1.0) {
-        vdir = vec3(st, sqrt(1.0 - d));
-        if (f) vdir = vdir.xzy;
-    }
-
-    vec3 color = renderWorld(vdir);
-
-    color *= (1.0 + color * 0.063) / (1.0 + color);
-
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(skyColor, 1.0);
+  #else
+    gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+  #endif
 }
