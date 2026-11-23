@@ -1,6 +1,6 @@
-# Newb X Legacy
+# Vanilla Shader
 
-**Newb X Legacy** is a RenderDragon successor to the legacy GLSL shader, [Newb Shader](https://github.com/devendrn/newb-shader-mcbe). It is an enhanced vanilla shader that focuses on being lightweight and having soft aesthetics. It supports Minecraft Bedrock 1.26+ (Windows/Android/iOS).
+**Vanilla Shader** is a RenderDragon Shader based on the popular shader Newb X Legacy. It is an enhanced vanilla shader that focuses on being lightweight and having soft aesthetics. It supports Minecraft Bedrock 26.60+ (Windows/Android/iOS).
 
 <br>
 
@@ -8,7 +8,7 @@
 
 ## Downloads
 
-You can download the shader pack from [release page](https://github.com/devendrn/newb-x-mcbe/releases/latest).
+You can download the shader pack from the release page.
 
 ## Installation
 
@@ -50,7 +50,7 @@ Using shaders on iOS is not very straightforward and not recommended for beginne
 
 | **Using Minecraft with Hynis** |
 |:-|
-| 1. Download Minecraft with Hynis IPA file from our [Discord server](https://discord.com/invite/newb-community-844591537430069279). |
+| 1. Download Minecraft with Hynis IPA file from the Newb Comunnity [Discord server](https://discord.com/invite/newb-community-844591537430069279). |
 | 2. Sideload it with your preferred sideloading tool. |
 | 3. Import the resource pack and activate it in global resources. |
 
@@ -64,12 +64,6 @@ Using shaders on iOS is not very straightforward and not recommended for beginne
 - Python packages:
   - [lazurite](https://veka0.github.io/lazurite/#installation) (Must be `v0.12.0`. Newer or older version may not be supported)
   - [rich](https://rich.readthedocs.io/en/stable/introduction.html#installation) (Must be `v14+`)
-
-### Get source code
-```
-git clone https://github.com/devendrn/newb-x-mcbe/ -c core.symlinks=true
-cd newb-x-mcbe
-```
 
 ### Install dependencies from requirements.txt
 *Skip if you already have installed those versions.*
