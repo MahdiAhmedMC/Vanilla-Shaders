@@ -9,7 +9,7 @@
   "default_texture": "",
   "unordered_access": false,
   "always_one": 1,
-  "texture_path": "textures/newb/noise",
+  "texture_path": "textures/vanilla/noise",
      "sampler_state": {
     "wrapping": "Repeat"
   },
