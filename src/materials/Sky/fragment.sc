@@ -80,7 +80,7 @@
     #endif
 
     if (visibility > 0.0) {
-      vec3 aurora = vec3(0.0);
+      vec3 aurora = vec3(0.0, 0.0, 0.0);
 
       // The sky material already receives a world-oriented view direction.
       vec3 wpos = viewPos;
@@ -139,7 +139,7 @@
       return aurora * visibility / float(AURORA_LAYERS);
     }
 
-    return vec3(0.0);
+    return vec3(0.0, 0.0, 0.0);
   }
 #endif
 
