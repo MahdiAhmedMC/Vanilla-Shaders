@@ -24,4 +24,24 @@ credits = '''
 '''
 
 # subpacks are arranged in left to right order
-# right-most subpack is enabled by defau
+# right-most subpack is enabled by default
+[[subpack]]
+define = "REIMAGINED"
+materials = ["Sky", "RenderChunk", "Actor", "ActorGlint", "EndSky", "Clouds", "SunMoon", "Weather", "ItemInHandTextured", "ItemInHandColor", "ItemInHandColorGlint", "Stars"]
+description = '''
+Reimagined version, still vanilla like.
+'''
+
+[[subpack]]
+define = "UNBOUND"
+materials = ["Sky", "RenderChunk", "Actor", "ActorGlint", "EndSky", "Clouds", "SunMoon", "Weather", "ItemInHandTextured", "ItemInHandColor", "ItemInHandColorGlint", "Stars"]
+description = '''
+Unbound version, a bit more realistic.
+'''
+
+[[subpack]]
+define = "LITE"
+materials = ["Sky", "RenderChunk", "Actor", "ActorGlint", "EndSky", "Clouds", "SunMoon", "Weather", "ItemInHandTextured", "ItemInHandColor", "ItemInHandColorGlint", "Stars"]
+description = '''
+Many effects disabled. A bit lighter!
+'''
