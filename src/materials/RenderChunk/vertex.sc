@@ -16,28 +16,8 @@ uniform vec4 CameraPosition;
 
 SAMPLER2D_AUTOREG(s_MatTexture);
 SAMPLER2D_AUTOREG(s_LightMapTexture);
-SAMPLER2D_AUTOREG(s_Caustics);
 
 void main() {
-vec3 N;
-N = normalize(cross(dFdx(v_position), dFdy(v_position)));
-
-bool blockUnderWater = (v_lightmapUV.y < 0.9 && abs((2.0 * v_position.y - 15.0) / 16.0 - v_lightmapUV.y) < 0.00002);
-
-if(env.underwater || blockUnderWater){
-    vec2 uv = v_position.xz * 0.15;
-    uv += vec2(time * 0.02, time * 0.02);
-    vec3 caustic = texture2D(s_Caustics, uv).rgb;
-
-    float ndotl = max(N.y, 0.0);
-    caustic *= ndotl * 0.5;
-
-    vec3 watercol = vec3(0.0, 0.3, 0.5);
-    vec3 finalColor = watercol + caustic;
-
-    diffuse.rgb *= finalColor;
-    diffuse.rgb *= 2.7;
-}
   #ifdef INSTANCING
     mat4 model = mtxFromCols(i_data0, i_data1, i_data2, i_data3);
   #else
